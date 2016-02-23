@@ -12,7 +12,6 @@ package PandocTable;
 
 use JSON::XS;
 use YAML::XS;
-
 use constant DEBUG=>0;
 
 sub new {
@@ -35,15 +34,25 @@ sub yaml {
 	return $buf;
 }
 
+sub spv {
+	my ($self,$delimiter)=@_;
+	
+	foreach my $datas(@{$self->{data}}) {
+		my @lines=( join($delimiter,map {qq{"$_"}} @{$datas->{fields}}));
+		foreach my $row(@{$datas->{rows}}) {
+			push @lines,join($delimiter,map {qq{"$_"}} @{$row});
+		}
+		say join("\n",@lines);
+		say "";
+	}
+}
+
+
 sub parse {
 	my $self=shift;
 
 	my @datas=();
-
-	my $nest=0;
-	my @line=();
-	my @lines=();
-	my @fields=();
+	my $nest=0; my @line=(); my @lines=(); my @fields=();
 
 	my $decode;
 	$decode=sub {
@@ -84,9 +93,7 @@ sub parse {
 				push @lines,[@line] if($#line != -1);
 				push @datas,{fields=>[@fields],rows=>[@lines]};
 
-				@line=();
-				@lines=();
-				@fields=();
+				@line=(); @lines=(); @fields=();
 
 			}
 		}
@@ -101,8 +108,27 @@ sub parse {
 
 package Main;
 
-my $buf=""; { local $/; $buf=<> };
-say PandocTable->new($buf)->parse->yaml;
+my $buf=""; { local $/; $buf=<STDIN> };
+
+my $cmd=$ARGV[0] || '';
+
+if($cmd eq 'yaml') {
+
+	say PandocTable->new($buf)->parse->yaml;
+
+} elsif($cmd eq 'csv') {
+
+	say PandocTable->new($buf)->parse->spv(",");
+
+} elsif($cmd eq 'tsv') {
+
+	say PandocTable->new($buf)->parse->spv("\t");
+
+} else {
+
+	say "USAGE: $0 [ yaml | csv | tsv ]";
+
+}
 
 
 1;
