@@ -7,10 +7,6 @@ Pandoc と Perlを使って、Markdownの表をYAMLに変換します。
 	JSON::XS;
 	YAML::XS;
 
-# 使用例
-
-	$ cat README.md | pandoc -t markdown -t json | ./mdtable2yaml.pl
-
 # サンプルデータ
 
 A列A    | A列B    | A列C
@@ -28,6 +24,10 @@ B行2列A | B行2列B | B行2列C
 B行3列A | B行3列B | B行3列C
 B行4列A | B行4列B | B行4列C
 B行5列A | B行5列B | B行5列C
+
+# 使用例
+
+	$ cat README.md | pandoc -t markdown -t json | ./mdtable2yaml.pl
 
 # 処理結果
 
