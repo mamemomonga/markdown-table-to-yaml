@@ -4,8 +4,14 @@ Pandoc と Perlを使って、Markdownの表をYAMLに変換します。
 
 # 必要なPerlモジュール
 
-	JSON::XS;
-	YAML::XS;
+	JSON::XS
+	YAML::XS
+
+# PerlモジュールとPandocのインストール
+cpanm, brew設定済みのOSXの例
+
+	$ cpanm JSON::XS YAML::XS
+	$ brew install pandoc
 
 # サンプルデータ
 
