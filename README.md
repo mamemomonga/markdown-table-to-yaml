@@ -1,6 +1,8 @@
-# MarkdownのテーブルをYAMLに変換する。
+# MarkdownでつくったテーブルをYAMLに変換します。
 
 Pandoc と Perlを使って、Markdownの表をYAMLに変換します。
+
+Pandoc AST(abstract syntax tree)を使用します。
 
 # 必要なPerlモジュール
 
