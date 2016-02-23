@@ -132,5 +132,6 @@ B行5列A | B行5列B | B行5列C
 ## Excel向けCSV(cp932 CR+LF)で書き出す
 
 	$ cat README.md | pandoc -t markdown -t json | ./markdown-table.pl csv | iconv -f utf8 -t cp932 | perl -pe 's/\r/\r\n/g' > table.csv
+	$ open -a "Microsoft Excel" table.csv
 
 
