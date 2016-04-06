@@ -8,172 +8,47 @@ binmode(STDOUT,":utf8");
 binmode(STDIN ,":utf8");
 binmode(STDERR,":utf8");
 
-package PandocTable;
-
-use JSON::XS;
-use YAML::XS;
-use constant DEBUG=>0;
+package Actions;
+use PandocTable;
 
 sub new {
-	my ($class,$ast)=@_;
-	my $self={};
+	my ($class,$self)=(shift,{@_});
 	bless($self,$class);
-
-	utf8::encode($ast);
-	$self->{ast}=JSON::XS->new()->utf8->decode($ast);
-
 	return $self;
 }
 
-sub data {
-	my $self=shift;
-	return $self->{data};
+sub usage {
+	say "USAGE: $0 [ yaml | csv | tsv | direct ]";
+	return 255;
 }
 
 sub yaml {
-	my $self=shift;
-	my $buf=YAML::XS::Dump($self->{data});
-	utf8::decode($buf);
-	return $buf;
+	shift;
+	say PandocTable->new(shift)->parse->yaml;
 }
 
 sub direct {
-	my $self=shift;
-	$self->{data}=$self->{ast};
-	return $self;
+	shift;
+	say PandocTable->new(shift)->direct->yaml;
 }
 
-sub spv {
-	my ($self,$delimiter)=@_;
-	
-	foreach my $datas(@{$self->{data}}) {
-		my @lines=( join($delimiter,map {qq{"$_"}} @{$datas->{fields}}));
-		foreach my $row(@{$datas->{rows}}) {
-			push @lines,join($delimiter,map {qq{"$_"}} @{$row});
-		}
-		say join("\n",@lines);
-		say "";
-	}
+sub csv {
+	shift;
+	say PandocTable->new(shift)->parse->spv(",");
 }
 
-
-sub parse_str {
-	my ($self,$in)=@_;
-	my @str=();
-
-	my $recu;
-	$recu=sub {
-		my $ref=shift;
-		if(ref($ref) eq 'ARRAY') {
-			foreach(@{$ref}) { &{$recu}($_) }
-		} elsif (ref($ref) eq 'HASH') {
-			if($ref->{t} eq 'Str') {
-				push @str,$ref->{c};
-
-			} elsif ($ref->{t} eq 'Space') {
-				push @str,' ';
-
-			} else {
-				&{$recu}($ref->{c});
-			}
-
-		}
-	};
-	&{$recu}($in);
-	return join('',@str);
-}
-
-
-sub parse {
-	my $self=shift;
-
-	my @datas=();
-	my $nest=0; my @line=(); my @lines=(); my @fields=();
-
-	my $recu;
-	$recu=sub {
-		my $ref=shift;
-
-		if(ref($ref) eq 'ARRAY') {
-			$nest++;
-
-			if($nest == 5) {
-				push @lines,[@line] if($#line != -1);
-				@line=();
-			}
-
-			say $nest if(DEBUG);
-			foreach(@{$ref}) { &{$recu}($_) }
-			$nest--;
-	
-	
-		} elsif(ref($ref) eq 'HASH') {
-			return unless $ref;
-			return unless $ref->{t};
-
-			if($ref->{t} eq 'Plain') {
-				say "$nest:Plain" if (DEBUG);
-				my $str=$self->parse_str($ref->{c});
-				say "  [$str]" if (DEBUG);
-				push @fields,$str if ($nest == 5);
-				push @line,$str   if ($nest == 6);
-
-	
-			} elsif($ref->{t} eq 'Table') {
-				say "$nest:Table" if (DEBUG);
-				&{$recu}($ref->{c});
-
-				push @lines,[@line] if($#line != -1);
-				push @datas,{fields=>[@fields],rows=>[@lines]};
-
-				@line=(); @lines=(); @fields=();
-
-			}
-		}
-	};
-	&{$recu}( $self->{ast} );
-	$self->{data}=\@datas;
-	return $self;
-}
-
-sub Dumper {
-	eval {
-		no warnings;
-		require 'Data/Dumper.pm';
-		*Data::Dumper::qquote=sub{return shift};
-		local $Data::Dumper::Useperl=1;
-		my $d=Data::Dumper->new(\@_)->Dump;
-		return $d;
-	};
+sub tsv {
+	shift;
+	say PandocTable->new(shift)->parse->spv("\t");
 }
 
 package Main;
 
-my $buf=""; { local $/; $buf=<STDIN> };
+my $actions=Actions->new();
 
+my $buf=""; { local $/; $buf=<STDIN> };
 my $cmd=$ARGV[0] || '';
 
-if($cmd eq 'yaml') {
-
-	say PandocTable->new($buf)->parse->yaml;
-
-} elsif($cmd eq 'direct') {
-
-	say PandocTable->new($buf)->direct->yaml;
-
-} elsif($cmd eq 'csv') {
-
-	say PandocTable->new($buf)->parse->spv(",");
-
-} elsif($cmd eq 'tsv') {
-
-	say PandocTable->new($buf)->parse->spv("\t");
-
-} else {
-
-	say "USAGE: $0 [ yaml | csv | tsv ]";
-
-}
-
+if($actions->can($cmd)) { $actions->$cmd($buf) } else { $actions->usage }
 
 1;
