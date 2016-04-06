@@ -18,7 +18,10 @@ sub new {
 	my ($class,$ast)=@_;
 	my $self={};
 	bless($self,$class);
-	$self->{ast}=$ast;
+
+	utf8::encode($ast);
+	$self->{ast}=JSON::XS->new()->utf8->decode($ast);
+
 	return $self;
 }
 
@@ -32,6 +35,12 @@ sub yaml {
 	my $buf=YAML::XS::Dump($self->{data});
 	utf8::decode($buf);
 	return $buf;
+}
+
+sub direct {
+	my $self=shift;
+	$self->{data}=$self->{ast};
+	return $self;
 }
 
 sub spv {
@@ -48,14 +57,41 @@ sub spv {
 }
 
 
+sub parse_str {
+	my ($self,$in)=@_;
+	my @str=();
+
+	my $recu;
+	$recu=sub {
+		my $ref=shift;
+		if(ref($ref) eq 'ARRAY') {
+			foreach(@{$ref}) { &{$recu}($_) }
+		} elsif (ref($ref) eq 'HASH') {
+			if($ref->{t} eq 'Str') {
+				push @str,$ref->{c};
+
+			} elsif ($ref->{t} eq 'Space') {
+				push @str,' ';
+
+			} else {
+				&{$recu}($ref->{c});
+			}
+
+		}
+	};
+	&{$recu}($in);
+	return join('',@str);
+}
+
+
 sub parse {
 	my $self=shift;
 
 	my @datas=();
 	my $nest=0; my @line=(); my @lines=(); my @fields=();
 
-	my $decode;
-	$decode=sub {
+	my $recu;
+	$recu=sub {
 		my $ref=shift;
 
 		if(ref($ref) eq 'ARRAY') {
@@ -67,7 +103,7 @@ sub parse {
 			}
 
 			say $nest if(DEBUG);
-			foreach(@{$ref}) { &{$decode}($_) }
+			foreach(@{$ref}) { &{$recu}($_) }
 			$nest--;
 	
 	
@@ -75,20 +111,17 @@ sub parse {
 			return unless $ref;
 			return unless $ref->{t};
 
-			if($ref->{t} eq 'Str') {
+			if($ref->{t} eq 'Plain') {
+				say "$nest:Plain" if (DEBUG);
+				my $str=$self->parse_str($ref->{c});
+				say "  [$str]" if (DEBUG);
+				push @fields,$str if ($nest == 5);
+				push @line,$str   if ($nest == 6);
 
-				push @line,$ref->{c}   if ($nest == 7);
-				push @fields,$ref->{c} if ($nest == 6);
-
-				say "$nest:".Dumper($ref->{c}) if(DEBUG);
-
-
-			} elsif($ref->{t} eq 'Plain') {
-				&{$decode}($ref->{c});
 	
 			} elsif($ref->{t} eq 'Table') {
-				&{$decode}($ref->{c});
-				say "TABLE" if(DEBUG);
+				say "$nest:Table" if (DEBUG);
+				&{$recu}($ref->{c});
 
 				push @lines,[@line] if($#line != -1);
 				push @datas,{fields=>[@fields],rows=>[@lines]};
@@ -98,12 +131,20 @@ sub parse {
 			}
 		}
 	};
-
-	my $ast=$self->{ast}; utf8::encode($ast);
-	&{$decode}( JSON::XS->new()->utf8->decode($ast) );
-
+	&{$recu}( $self->{ast} );
 	$self->{data}=\@datas;
 	return $self;
+}
+
+sub Dumper {
+	eval {
+		no warnings;
+		require 'Data/Dumper.pm';
+		*Data::Dumper::qquote=sub{return shift};
+		local $Data::Dumper::Useperl=1;
+		my $d=Data::Dumper->new(\@_)->Dump;
+		return $d;
+	};
 }
 
 package Main;
@@ -115,6 +156,10 @@ my $cmd=$ARGV[0] || '';
 if($cmd eq 'yaml') {
 
 	say PandocTable->new($buf)->parse->yaml;
+
+} elsif($cmd eq 'direct') {
+
+	say PandocTable->new($buf)->direct->yaml;
 
 } elsif($cmd eq 'csv') {
 
