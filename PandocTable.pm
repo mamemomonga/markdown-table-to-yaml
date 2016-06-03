@@ -12,10 +12,10 @@ sub new {
 	my ($class,$ast)=@_;
 	my $self={};
 	bless($self,$class);
-
-	utf8::encode($ast);
-	$self->{ast}=JSON::XS->new()->utf8->decode($ast);
-
+	if(defined($ast)) {
+		utf8::encode($ast);
+		$self->{ast}=JSON::XS->new()->utf8->decode($ast);
+	}
 	return $self;
 }
 
